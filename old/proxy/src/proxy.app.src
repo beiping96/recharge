@@ -1,0 +1,11 @@
+{application, proxy,
+  [
+    {description, "proxy"},
+    {vsn, "1.0.0"},
+    {modules, [proxy]},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {env, []},
+    {mod, {proxy_app, []}}
+  ]
+}.
