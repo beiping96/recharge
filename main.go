@@ -34,6 +34,7 @@ var lock sync.RWMutex
 type config struct {
 	listenIp          string `xml:listen_ip`
 	listenPort        string `xml:listen_port`
+	isHttps           string `xml:is_https`
 	certFile          string `xml:cert_file`
 	keyFile           string `xml:key_file`
 	mysqlIp           string `xml:mysql_ip`
@@ -46,6 +47,14 @@ type config struct {
 }
 
 var configGlobal config
+
+var logChan chan string
+
+const dbConnection = 8
+
+func init() {
+	logChan = make(chan string, dbConnection)
+}
 
 func main() {
 	// read args
@@ -80,7 +89,11 @@ func main() {
 	http.HandleFunc("/gaeapay", gaeaRecharge)
 	listenAddr := configGlobal.listenIp + ":" + configGlobal.listenPort
 	httpServer := &http.Server{Addr: listenAddr, Handler: nil}
-	err = httpServer.ListenAndServeTLS(configGlobal.certFile, configGlobal.keyFile)
+	if configGlobal.isHttps == "true" {
+		err = httpServer.ListenAndServeTLS(configGlobal.certFile, configGlobal.keyFile)
+	} else {
+		err = httpServer.ListenAndServe()
+	}
 	if err != nil {
 		log.Fatal("ListenAndServeTLS: ", err)
 	}
