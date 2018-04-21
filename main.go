@@ -22,31 +22,31 @@ import (
 // load server list each 10mins
 const interval = 10
 
-type server struct {
-	id   string `xml:id`
-	ip   string `xml:ip`
-	port string `xml:port`
+type Server struct {
+	Id   string `xml:"id"`
+	Ip   string `xml:"ip"`
+	Port string `xml:"port"`
 }
 
-var serverList map[string]server
+var serverList map[string]Server
 var lock sync.RWMutex
 
-type config struct {
-	listenIp          string `xml:listen_ip`
-	listenPort        string `xml:listen_port`
-	isHttps           string `xml:is_https`
-	certFile          string `xml:cert_file`
-	keyFile           string `xml:key_file`
-	mysqlIp           string `xml:mysql_ip`
-	mysqlPort         string `xml:mysql_port`
-	mysqlUser         string `xml:mysql_user`
-	mysqlPw           string `xml:mysql_password`
-	mysqlDB           string `xml:mysql_db`
-	serverListXMLFile string `xml:server_list_xml_file`
-	logFile           string `xml:log_file`
+type Config struct {
+	ListenIp          string `xml:"listen_ip"`
+	ListenPort        string `xml:"listen_port"`
+	IsHttps           string `xml:"is_https"`
+	CertFile          string `xml:"cert_file"`
+	KeyFile           string `xml:"key_file"`
+	MysqlIp           string `xml:"mysql_ip"`
+	MysqlPort         string `xml:"mysql_port"`
+	MysqlUser         string `xml:"mysql_user"`
+	MysqlPw           string `xml:"mysql_password"`
+	MysqlDB           string `xml:"mysql_db"`
+	ServerListXMLFile string `xml:"server_list_xml_file"`
+	LogFile           string `xml:"log_file"`
 }
 
-var configGlobal config
+var configGlobal Config
 
 var logChan chan string
 
@@ -74,7 +74,7 @@ func main() {
 	loadServerList()
 	// redirect the log system
 	log.SetOutput(&lumberjack.Logger{
-		Filename:   configGlobal.logFile,
+		Filename:   configGlobal.LogFile,
 		MaxSize:    20,
 		MaxBackups: 9,
 		MaxAge:     28,
@@ -87,10 +87,10 @@ func main() {
 	// start listening
 	http.HandleFunc("/proxy_v2_recharge", v2Recharge)
 	http.HandleFunc("/gaeapay", gaeaRecharge)
-	listenAddr := configGlobal.listenIp + ":" + configGlobal.listenPort
+	listenAddr := configGlobal.ListenIp + ":" + configGlobal.ListenPort
 	httpServer := &http.Server{Addr: listenAddr, Handler: nil}
-	if configGlobal.isHttps == "true" {
-		err = httpServer.ListenAndServeTLS(configGlobal.certFile, configGlobal.keyFile)
+	if configGlobal.IsHttps == "true" {
+		err = httpServer.ListenAndServeTLS(configGlobal.CertFile, configGlobal.KeyFile)
 	} else {
 		err = httpServer.ListenAndServe()
 	}
@@ -110,7 +110,7 @@ func gaeaRecharge(http.ResponseWriter, *http.Request) {
 
 func writeDB()
 
-func getServer(serverId string) server {
+func getServer(serverId string) Server {
 	lock.RLock()
 	defer lock.RUnlock()
 	return serverList[serverId]
@@ -127,22 +127,22 @@ func startServerListLoadTimer() {
 }
 
 func loadServerList() {
-	serverListXML, err := ioutil.ReadFile(configGlobal.serverListXMLFile)
+	serverListXML, err := ioutil.ReadFile(configGlobal.ServerListXMLFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var serverS []server
+	var serverS []Server
 	err = xml.Unmarshal(serverListXML, &serverS)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, serverOne := range serverS {
-		saveServer(serverOne)
+	for _, server := range serverS {
+		saveServer(server)
 	}
 }
 
-func saveServer(serverOne server) {
+func saveServer(server Server) {
 	lock.Lock()
 	defer lock.Unlock()
-	serverList[serverOne.id] = serverOne
+	serverList[server.Id] = server
 }
