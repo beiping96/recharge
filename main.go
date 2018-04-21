@@ -1,20 +1,20 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
+	// "database/sql"
+	// "encoding/json"
 	"encoding/xml"
-	"fmt"
+	// "fmt"
 	_ "github.com/go-sql-driver/MySQL"
 	"github.com/natefinch/lumberjack"
 	"io/ioutil"
 	"log"
-	"net"
+	// "net"
 	"net/http"
-	"net/url"
+	// "net/url"
 	"os"
-	"strconv"
-	"strings"
+	// "strconv"
+	// "strings"
 	"sync"
 	"time"
 )
@@ -50,10 +50,11 @@ var configGlobal Config
 
 var logChan chan string
 
-const dbConnection = 8
+const dbConnectionCount = 8
 
 func init() {
-	logChan = make(chan string, dbConnection)
+	serverList = make(map[string]Server)
+	logChan = make(chan string, dbConnectionCount)
 }
 
 func main() {
@@ -82,6 +83,8 @@ func main() {
 	})
 	log.Println(time.Now().Unix())
 
+	initDB()
+
 	go startServerListLoadTimer()
 
 	// start listening
@@ -90,14 +93,15 @@ func main() {
 	listenAddr := configGlobal.ListenIp + ":" + configGlobal.ListenPort
 	httpServer := &http.Server{Addr: listenAddr, Handler: nil}
 	if configGlobal.IsHttps == "true" {
+		log.Println("Start recharge server (HTTP), listen addr: ", listenAddr)
 		err = httpServer.ListenAndServeTLS(configGlobal.CertFile, configGlobal.KeyFile)
 	} else {
+		log.Println("Start recharge server (HTTPS), listen addr: ", listenAddr)
 		err = httpServer.ListenAndServe()
 	}
 	if err != nil {
 		log.Fatal("ListenAndServeTLS: ", err)
 	}
-	log.Println("Start recharge server success, listen addr: ", listenAddr)
 }
 
 func v2Recharge(http.ResponseWriter, *http.Request) {
@@ -108,7 +112,6 @@ func gaeaRecharge(http.ResponseWriter, *http.Request) {
 
 }
 
-func writeDB()
 
 func getServer(serverId string) Server {
 	lock.RLock()
