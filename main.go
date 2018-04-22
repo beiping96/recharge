@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
-	// "encoding/json"
+	"encoding/json"
 	"encoding/xml"
-	// "fmt"
+	"fmt"
 	_ "github.com/go-sql-driver/MySQL"
 	"github.com/natefinch/lumberjack"
 	"io/ioutil"
@@ -49,11 +49,11 @@ type Config struct {
 var configGlobal Config
 
 type logStruct struct {
-	channel string
+	channel  string
 	serverId string
-	orderId string
-	appId string
-	ext string
+	orderId  string
+	appId    string
+	ext      string
 }
 
 var logChan chan logStruct
@@ -62,13 +62,11 @@ const dbConnectionCount = 2
 
 func (logItem logStruct) write() {
 	logChan <- logItem
-} 
-
-
+}
 
 func init() {
 	serverList = make(map[string]Server)
-	logChan = make(chan string, dbConnectionCount)
+	logChan = make(chan logStruct, dbConnectionCount)
 }
 
 func main() {
@@ -119,86 +117,87 @@ func main() {
 }
 
 type V2RechargeStruct struct {
-	HJOrderId string `json:"HJOrderId"`
-    HJUniqueId string `json:"HJUniqueId"`
-    HJAppId string `json:"HJAppId"`
-    HJUserId string `json:"HJUserId"`
-    HJRoleId string `json:"HJRoleId"`
-    HJServerId string `json:"HJServerId"`
-    HJOrderTime string `json:"HJOrderTime"`
-    HJChannel string `json:"HJChannel"`
-    HJAmount string `json:"HJAmount"`
-    HJCurrency string `json:"HJCurrency"`
-    HJItemId string `json:"HJItemId"`
-    HJItemName string `json:"HJItemName"`
-    HJPayExt string `json:"HJPayExt"`
-    HJVersion string `json:"HJVersion"`
-    HJSign string `json:"HJSign"`
+	HJOrderId   string `json:"HJOrderId"`
+	HJUniqueId  string `json:"HJUniqueId"`
+	HJAppId     string `json:"HJAppId"`
+	HJUserId    string `json:"HJUserId"`
+	HJRoleId    string `json:"HJRoleId"`
+	HJServerId  string `json:"HJServerId"`
+	HJOrderTime string `json:"HJOrderTime"`
+	HJChannel   string `json:"HJChannel"`
+	HJAmount    string `json:"HJAmount"`
+	HJCurrency  string `json:"HJCurrency"`
+	HJItemId    string `json:"HJItemId"`
+	HJItemName  string `json:"HJItemName"`
+	HJPayExt    string `json:"HJPayExt"`
+	HJVersion   string `json:"HJVersion"`
+	HJSign      string `json:"HJSign"`
 }
 
 func v2Recharge(rsp http.ResponseWriter, req *http.Request) {
 	var post V2RechargeStruct
-	json.Unmarshal(req.Post, &post)
+	json.Unmarshal(req.PostForm, &post)
 
 	log := logStruct{
-	channel: "HJ"
-	serverId: post.HJServerId
-	orderId: post.HJOrderId
-	appId: post.HJAppId
-	ext: post.String()
+		channel:  "HJ",
+		serverId: post.HJServerId,
+		orderId:  post.HJOrderId,
+		appId:    post.HJAppId,
+		ext:      post.String(),
 	}
 	log.write()
 }
 
 type GaeaRechargeStruct struct {
-	    AppId   string `json:"appid"`
-    ServerId  string `json:"serverid"`
-    Uid  string `json:"uid"`
-    Amount  string `json:"amount"`
-    OrderId  string `json:"orderid"`
-    ItemId  string `json:"item"`
-    ActualAmount   string `json:"actual_amount"`
-    PayExt  string `json:"payext"`
-    Currency string `json:"currency"`
-    Signature  string `json:"signature"`
+	AppId        string `json:"appid"`
+	ServerId     string `json:"serverid"`
+	Uid          string `json:"uid"`
+	Amount       string `json:"amount"`
+	OrderId      string `json:"orderid"`
+	ItemId       string `json:"item"`
+	ActualAmount string `json:"actual_amount"`
+	PayExt       string `json:"payext"`
+	Currency     string `json:"currency"`
+	Signature    string `json:"signature"`
 }
 
 func gaeaRecharge(rsp http.ResponseWriter, req *http.Request) {
 	var post GaeaRechargeStruct
-	json.Unmarshal(res.Post, &post)
+	json.Unmarshal(req.PostForm, &post)
 
-
-		log := logStruct{
-	channel: "Gaea"
-	serverId: post.ServerId
-	orderId: post.OrderId
-	appId: post.AppId
-	ext: post.String()
+	log := logStruct{
+		channel:  "Gaea",
+		serverId: post.ServerId,
+		orderId:  post.OrderId,
+		appId:    post.AppId,
+		ext:      post.String(),
 	}
 	log.write()
 }
 
-
 func initDB() {
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8", 
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8",
 		configGlobal.MysqlUser, configGlobal.MysqlPw, configGlobal.MysqlIp, configGlobal.MysqlPort, configGlobal.MysqlDB)
 	// create connection
-	for i :=0 ; i< dbConnectionCount; i++ {
-	db, err := sql.Open("mysql", connStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-	go dbWorker(db)
+	for i := 0; i < dbConnectionCount; i++ {
+		db, err := sql.Open("mysql", connStr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = db.Ping()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go dbWorker(db)
 	}
 }
 
-func dbWorker(db sql.DB) {
+func dbWorker(db *sql.DB) {
 	for {
-		log := <- logChan
+		log := <-logChan
+		sql := "
+INSERT INTO log_recharge (time, )
+		"
 		sql := fmt.Sprintf("insert into content (zone_id, zone_cont) values (%v, '%v')", log.zone_id, content)
 		db.Exec(sql)
 	}
