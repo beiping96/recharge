@@ -93,7 +93,7 @@ func hjRecharge(rsp http.ResponseWriter, req *http.Request) {
 
 	serverRsp, err := http.PostForm(getServer(info.hjServerId)+"/proxy_hj_recharge", req.PostForm)
 	if err != nil {
-		log.Println("Callback Error: ", err)
+		log.Println("Try Callback url: ", getServer(info.hjServerId), " Error: ", err)
 		return
 	}
 

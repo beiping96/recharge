@@ -91,7 +91,7 @@ func gaeaRecharge(rsp http.ResponseWriter, req *http.Request) {
 	}
 	serverRsp, err := http.PostForm(getServer(info.serverId)+"/proxy_gaeapay_recharge", postForm)
 	if err != nil {
-		log.Println("Callback Error: ", err)
+		log.Println("Try Callback url: ", getServer(info.serverId), " Error: ", err)
 		return
 	}
 
