@@ -2,19 +2,15 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	_ "github.com/go-sql-driver/MySQL"
 	"github.com/natefinch/lumberjack"
 	"io/ioutil"
 	"log"
-	// "net"
 	"net/http"
-	// "net/url"
+	"net/url"
 	"os"
-	// "strconv"
-	// "strings"
 	"sync"
 	"time"
 )
@@ -23,12 +19,11 @@ import (
 const interval = 10
 
 type Server struct {
-	Id   string `xml:"id"`
-	Ip   string `xml:"ip"`
-	Port string `xml:"port"`
+	Id  string `xml:"id"`
+	Url string `xml:"url"`
 }
 
-var serverList map[string]Server
+var serverList map[string]string
 var lock sync.RWMutex
 
 type Config struct {
@@ -65,7 +60,7 @@ func (logItem logStruct) write() {
 }
 
 func init() {
-	serverList = make(map[string]Server)
+	serverList = make(map[string]string)
 	logChan = make(chan logStruct, dbConnectionCount)
 }
 
@@ -77,11 +72,11 @@ func main() {
 	// read configuration
 	configXML, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Can't open config-file ", err)
 	}
 	err = xml.Unmarshal(configXML, &configGlobal)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Can't unmarshal config-file ", err)
 	}
 
 	loadServerList()
@@ -93,7 +88,7 @@ func main() {
 		MaxAge:     28,
 		Compress:   false,
 	})
-	log.Println(time.Now().Unix())
+	log.Println("NOW: ", time.Now().Unix())
 
 	initDB()
 
@@ -105,10 +100,10 @@ func main() {
 	listenAddr := configGlobal.ListenIp + ":" + configGlobal.ListenPort
 	httpServer := &http.Server{Addr: listenAddr, Handler: nil}
 	if configGlobal.IsHttps == "true" {
-		log.Println("Start recharge server (HTTP), listen addr: ", listenAddr)
+		log.Println("Start recharge server (HTTPS), listen addr: ", listenAddr)
 		err = httpServer.ListenAndServeTLS(configGlobal.CertFile, configGlobal.KeyFile)
 	} else {
-		log.Println("Start recharge server (HTTPS), listen addr: ", listenAddr)
+		log.Println("Start recharge server (HTTP), listen addr: ", listenAddr)
 		err = httpServer.ListenAndServe()
 	}
 	if err != nil {
@@ -117,60 +112,171 @@ func main() {
 }
 
 type V2RechargeStruct struct {
-	HJOrderId   string `json:"HJOrderId"`
-	HJUniqueId  string `json:"HJUniqueId"`
-	HJAppId     string `json:"HJAppId"`
-	HJUserId    string `json:"HJUserId"`
-	HJRoleId    string `json:"HJRoleId"`
-	HJServerId  string `json:"HJServerId"`
-	HJOrderTime string `json:"HJOrderTime"`
-	HJChannel   string `json:"HJChannel"`
-	HJAmount    string `json:"HJAmount"`
-	HJCurrency  string `json:"HJCurrency"`
-	HJItemId    string `json:"HJItemId"`
-	HJItemName  string `json:"HJItemName"`
-	HJPayExt    string `json:"HJPayExt"`
-	HJVersion   string `json:"HJVersion"`
-	HJSign      string `json:"HJSign"`
+	HJOrderId   string
+	HJUniqueId  string
+	HJAppId     string
+	HJUserId    string
+	HJRoleId    string
+	HJServerId  string
+	HJOrderTime string
+	HJChannel   string
+	HJAmount    string
+	HJCurrency  string
+	HJItemId    string
+	HJItemName  string
+	HJPayExt    string
+	HJVersion   string
+	HJSign      string
+}
+
+func (v2 V2RechargeStruct) check() bool {
+	return false
+}
+
+func (v2 V2RechargeStruct) string() string {
+	return ""
 }
 
 func v2Recharge(rsp http.ResponseWriter, req *http.Request) {
-	var post V2RechargeStruct
-	json.Unmarshal(req.PostForm, &post)
+	if req.Method != "POST" {
+		log.Println("Bad http method")
+		return
+	}
+	err := req.ParseForm()
+	if err != nil {
+		log.Println("Can't ParseForm: ", err)
+		return
+	}
+	info := V2RechargeStruct{
+		HJOrderId:   req.PostFormValue("HJOrderId"),
+		HJUniqueId:  req.PostFormValue("HJUniqueId"),
+		HJAppId:     req.PostFormValue("HJAppId"),
+		HJUserId:    req.PostFormValue("HJUserId"),
+		HJRoleId:    req.PostFormValue("HJRoleId"),
+		HJServerId:  req.PostFormValue("HJServerId"),
+		HJOrderTime: req.PostFormValue("HJOrderTime"),
+		HJChannel:   req.PostFormValue("HJChannel"),
+		HJAmount:    req.PostFormValue("HJAmount"),
+		HJCurrency:  req.PostFormValue("HJCurrency"),
+		HJItemId:    req.PostFormValue("HJItemId"),
+		HJItemName:  req.PostFormValue("HJItemName"),
+		HJPayExt:    req.PostFormValue("HJPayExt"),
+		HJVersion:   req.PostFormValue("HJVersion"),
+		HJSign:      req.PostFormValue("HJSign"),
+	}
+
+	if info.check() == false {
+		log.Println("Authorize Fail")
+		return
+	}
+
+	serverRsp, err := http.PostForm(getServer(info.HJServerId)+"/proxy_v2_recharge", req.PostForm)
+	if err != nil {
+		log.Println("Callback Error: ", err)
+		return
+	}
+
+	defer serverRsp.Body.Close()
+	body, err := ioutil.ReadAll(serverRsp.Body)
+	if err != nil {
+		log.Println("Callback body: ", err)
+		return
+	}
+	rsp.Write(body)
+	rsp.WriteHeader(serverRsp.StatusCode)
 
 	log := logStruct{
 		channel:  "HJ",
-		serverId: post.HJServerId,
-		orderId:  post.HJOrderId,
-		appId:    post.HJAppId,
-		ext:      post.String(),
+		serverId: info.HJServerId,
+		orderId:  info.HJOrderId,
+		appId:    info.HJAppId,
+		ext:      info.string(),
 	}
 	log.write()
 }
 
 type GaeaRechargeStruct struct {
-	AppId        string `json:"appid"`
-	ServerId     string `json:"serverid"`
-	Uid          string `json:"uid"`
-	Amount       string `json:"amount"`
-	OrderId      string `json:"orderid"`
-	ItemId       string `json:"item"`
-	ActualAmount string `json:"actual_amount"`
-	PayExt       string `json:"payext"`
-	Currency     string `json:"currency"`
-	Signature    string `json:"signature"`
+	AppId        string
+	ServerId     string
+	Uid          string
+	Amount       string
+	OrderId      string
+	ItemId       string
+	ActualAmount string
+	PayExt       string
+	Currency     string
+	Signature    string
+}
+
+func (gaea GaeaRechargeStruct) check() bool {
+	return false
+}
+
+func (gaea GaeaRechargeStruct) string() string {
+	return ""
 }
 
 func gaeaRecharge(rsp http.ResponseWriter, req *http.Request) {
-	var post GaeaRechargeStruct
-	json.Unmarshal(req.PostForm, &post)
+	if req.Method != "GET" {
+		log.Println("Bad http method")
+		return
+	}
+	err := req.ParseForm()
+	if err != nil {
+		log.Println("Can't ParseForm: ", err)
+		return
+	}
+
+	info := GaeaRechargeStruct{
+		AppId:        req.FormValue("appid"),
+		ServerId:     req.FormValue("serverid"),
+		Uid:          req.FormValue("uid"),
+		Amount:       req.FormValue("amount"),
+		OrderId:      req.FormValue("orderid"),
+		ItemId:       req.FormValue("item"),
+		ActualAmount: req.FormValue("actual_amount"),
+		PayExt:       req.FormValue("payext"),
+		Currency:     req.FormValue("currency"),
+		Signature:    req.FormValue("signature"),
+	}
+
+	if info.check() == false {
+		log.Println("Authorize Fail")
+		return
+	}
+	postForm := url.Values{
+		"appid":         {info.AppId},
+		"serverid":      {info.ServerId},
+		"uid":           {info.Uid},
+		"amount":        {info.Amount},
+		"orderid":       {info.OrderId},
+		"item":          {info.ItemId},
+		"actual_amount": {info.ActualAmount},
+		"payext":        {info.PayExt},
+		"currency":      {info.Currency},
+		"signature":     {info.Signature},
+	}
+	serverRsp, err := http.PostForm(getServer(info.ServerId)+"/proxy_gaeapay_recharge", postForm)
+	if err != nil {
+		log.Println("Callback Error: ", err)
+		return
+	}
+
+	defer serverRsp.Body.Close()
+	body, err := ioutil.ReadAll(serverRsp.Body)
+	if err != nil {
+		log.Println("Callback body: ", err)
+		return
+	}
+	rsp.Write(body)
+	rsp.WriteHeader(serverRsp.StatusCode)
 
 	log := logStruct{
 		channel:  "Gaea",
-		serverId: post.ServerId,
-		orderId:  post.OrderId,
-		appId:    post.AppId,
-		ext:      post.String(),
+		serverId: info.ServerId,
+		orderId:  info.OrderId,
+		appId:    info.AppId,
+		ext:      info.string(),
 	}
 	log.write()
 }
@@ -182,28 +288,32 @@ func initDB() {
 	for i := 0; i < dbConnectionCount; i++ {
 		db, err := sql.Open("mysql", connStr)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("SQL Open: ", err)
 		}
 		err = db.Ping()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("SQL Ping: ", err)
 		}
 		go dbWorker(db)
 	}
 }
 
 func dbWorker(db *sql.DB) {
+	defer db.Close()
+	stmt, err := db.Prepare("INSERT INTO recharge_log (unix, server_id, channel, order_id, app_id, ext) values (?, '?', '?', '?', '?', '?')")
+	if err != nil {
+		log.Fatal("SQL Exec: ", err)
+	}
 	for {
-		log := <-logChan
-		sql := "
-INSERT INTO log_recharge (time, )
-		"
-		sql := fmt.Sprintf("insert into content (zone_id, zone_cont) values (%v, '%v')", log.zone_id, content)
-		db.Exec(sql)
+		logOne := <-logChan
+		_, err := stmt.Exec(time.Now().UTC().Unix(), logOne.serverId, logOne.channel, logOne.orderId, logOne.appId, logOne.ext)
+		if err != nil {
+			log.Println("SQL Exec: ", err, "INFO: ", logOne)
+		}
 	}
 }
 
-func getServer(serverId string) Server {
+func getServer(serverId string) string {
 	lock.RLock()
 	defer lock.RUnlock()
 	return serverList[serverId]
@@ -222,12 +332,12 @@ func startServerListLoadTimer() {
 func loadServerList() {
 	serverListXML, err := ioutil.ReadFile(configGlobal.ServerListXMLFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Can't open ServerList confie file: ", err)
 	}
 	var serverS []Server
 	err = xml.Unmarshal(serverListXML, &serverS)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Can't unmarshal ServerList confie file: ", err)
 	}
 	for _, server := range serverS {
 		saveServer(server)
@@ -237,5 +347,5 @@ func loadServerList() {
 func saveServer(server Server) {
 	lock.Lock()
 	defer lock.Unlock()
-	serverList[server.Id] = server
+	serverList[server.Id] = server.Url
 }

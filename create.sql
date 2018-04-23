@@ -19,8 +19,10 @@ USE `fiveTten`;
 CREATE TABLE IF NOT EXISTS `recharge_log` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '自增ID',
   `unix` int(11) NOT NULL DEFAULT '0' COMMENT '时间戳',
-  `from` int(11) NOT NULL DEFAULT '0' COMMENT '0: v2_recharge 1:gaeapay',
-  `data` text NOT NULL,
+  `channel` varchar(255) NOT NULL DEFAULT '""' COMMENT '来源',
+  `order_id` varchar(255) NOT NULL DEFAULT '""' COMMENT '订单号',
+  `app_id` varchar(255) NOT NULL DEFAULT '""' COMMENT '设备ID',
+  `ext` text NOT NULL COMMENT 'INFO',
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COMMENT='充值记录';
 
