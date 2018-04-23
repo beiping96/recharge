@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <config>
+    <mode>debug</mode>
+
     <listen_ip>0.0.0.0</listen_ip>
     <listen_port>2333</listen_port>
     <is_https>false</is_https>
@@ -13,6 +15,6 @@
     <server_list_xml_file>./server_list.xml</server_list_xml_file>
     <log_file>./recharge.log</log_file>
 
-    <v2_secret_key>111</v2_secret_key>
+    <hj_secret_key>111</hj_secret_key>
     <gaea_secret_key>222</gaea_secret_key>
 </config>

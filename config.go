@@ -1,3 +1,4 @@
+// Load global config and serverlist
 package main
 
 import (
@@ -20,6 +21,7 @@ var serverList map[string]string
 var lock sync.RWMutex
 
 type Config struct {
+	Mode              string `xml:"mode"`
 	ListenIp          string `xml:"listen_ip"`
 	ListenPort        string `xml:"listen_port"`
 	IsHttps           string `xml:"is_https"`
@@ -32,7 +34,7 @@ type Config struct {
 	MysqlDB           string `xml:"mysql_db"`
 	ServerListXMLFile string `xml:"server_list_xml_file"`
 	LogFile           string `xml:"log_file"`
-	V2SecretKey       string `xml:"v2_secret_key"`
+	HJSecretKey       string `xml:"hj_secret_key"`
 	GaeaSecretKey     string `xml:"gaea_secret_key"`
 }
 
