@@ -2,9 +2,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -32,8 +35,11 @@ type Config struct {
 	MysqlUser         string `xml:"mysql_user"`
 	MysqlPw           string `xml:"mysql_password"`
 	MysqlDB           string `xml:"mysql_db"`
-	ServerListXMLFile string `xml:"server_list_xml_file"`
 	LogFile           string `xml:"log_file"`
+	ServerListLoadUrl string `xml:"server_list_load_url"`
+	HttpAuth          string `xml:"http_auth"`
+	HttpPW            string `xml:"http_pw"`
+	ServerListXMLFile string `xml:"server_list_xml_file"`
 	HJSecretKey       string `xml:"hj_secret_key"`
 	GaeaSecretKey     string `xml:"gaea_secret_key"`
 }
@@ -42,6 +48,37 @@ var configGlobal Config
 
 func init() {
 	serverList = make(map[string]string)
+}
+
+func checkAuth(req *http.Request) bool {
+	s := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
+	if len(s) != 2 {
+		return false
+	}
+
+	b, err := base64.StdEncoding.DecodeString(s[1])
+	if err != nil {
+		return false
+	}
+
+	pair := strings.SplitN(string(b), ":", 2)
+	if len(pair) != 2 {
+		return false
+	}
+
+	return pair[0] == configGlobal.HttpAuth && pair[1] == configGlobal.HttpPW
+}
+
+func configLoadHandler(rsp http.ResponseWriter, req *http.Request) {
+	if checkAuth(req) {
+		loadServerList()
+		rsp.Write([]byte("success!"))
+		return
+	}
+
+	rsp.Header().Set("WWW-Authenticate", `Basic realm="MAYDAYX REALM"`)
+	rsp.WriteHeader(http.StatusUnauthorized)
+	rsp.Write([]byte("401 Unauthorized\n"))
 }
 
 func getServer(serverId string) string {

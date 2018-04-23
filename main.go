@@ -41,6 +41,7 @@ func main() {
 	go startServerListLoadTimer()
 
 	// start listening
+	http.HandleFunc(configGlobal.ServerListLoadUrl, configLoadHandler)
 	http.HandleFunc("/proxy_v2_recharge", hjRecharge)
 	http.HandleFunc("/gaeapay", gaeaRecharge)
 	listenAddr := configGlobal.ListenIp + ":" + configGlobal.ListenPort

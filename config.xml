@@ -12,8 +12,12 @@
     <mysql_user>root</mysql_user>
     <mysql_password>root</mysql_password>
     <mysql_db>fiveTten</mysql_db>
-    <server_list_xml_file>./server_list.xml</server_list_xml_file>
     <log_file>./recharge.log</log_file>
+
+    <server_list_load_url>/load_server_list</server_list_load_url>
+    <http_auth>11</http_auth>
+    <http_pw>111</http_pw>
+    <server_list_xml_file>./server_list.xml</server_list_xml_file>
 
     <hj_secret_key>111</hj_secret_key>
     <gaea_secret_key>222</gaea_secret_key>
